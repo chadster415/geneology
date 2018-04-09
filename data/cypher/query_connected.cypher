@@ -1,0 +1,1 @@
+MATCH ({name : "Chad David Armstrong"})-[*..4]-(connected) RETURN connected

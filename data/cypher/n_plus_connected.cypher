@@ -1,0 +1,1 @@
+MATCH (n:Person)-[]-(connected) where n.name = "Joy Ann Church" RETURN n, connected

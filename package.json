@@ -1,0 +1,15 @@
+{
+  "name": "geneology",
+  "version": "1.0.0",
+  "description": "Family tree visualization",
+  "main": "server.js",
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "node server.js"
+  },
+  "author": "chad.armstrong@gmail.com",
+  "license": "ISC",
+  "dependencies": {
+    "express": "^4.16.2"
+  }
+}

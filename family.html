@@ -1,0 +1,474 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <meta charset="utf-8">
+  <title>Family Tree Visualization</title>
+  <script src="js/ogma.min.js"></script>
+  <script src="js/neo4j-web-bolt.min.js"></script>
+  <script src="//unpkg.com/dagre@0.7.4/dist/dagre.min.js"></script>
+  <link href="css/font-awesome.min.css" rel="stylesheet">
+  <style>
+    #graph-container { top: 0px; bottom: 0; left: 270px; right: 0; position: absolute; margin: 0; overflow: hidden;}
+    .btn {
+      display: inline-block;
+      padding: 6px 12px;
+      margin-bottom: 0;
+      font-size: 14px;
+      font-weight: 400;
+      line-height: 1.42857143;
+      text-align: center;
+      white-space: nowrap;
+      vertical-align: middle;
+      cursor: pointer;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      border: 1px solid transparent;
+      border-radius: 4px;
+    }
+    .btn.focus, .btn:focus, .btn:hover {
+      color: #333;
+      text-decoration: none;
+    }
+
+    .btn-default {
+      color: #333;
+      background-color: #fff;
+      border-color: #ccc;
+    }
+    .btn-default:hover {
+      color: #333;
+      background-color: #e6e6e6;
+      border-color: #adadad;
+    }
+
+    .btn-group-vertical {
+      position: relative;
+      display: inline-block;
+      vertical-align: middle;
+    }
+
+    .btn-group-vertical > .btn {
+      border: 0;
+      padding: 6px 10px;
+      position: relative;
+      display: block;
+      float: none;
+      width: 100%;
+      max-width: 100%;
+    }
+    .btn-group-vertical >.btn:not(:first-child):not(:last-child) {
+      border-radius: 0;
+    }
+    .btn-group-vertical > .btn:focus {
+      background-color: #ffffff;
+    }
+    .btn-group-vertical > .btn.active {
+      background-color: #cccccc;
+    }
+
+    #viewController {
+      position: absolute;
+      bottom: 10px;
+      right: 10px;
+      border-radius: 4px;
+      background-color: #ffffff;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.16), 0 1px 6px rgba(0, 0, 0, 0.23);
+    }
+
+    select {
+      width: 250px;
+      height: 700px;
+    }
+
+    .select-label {
+      font-family: 'Arial';
+      font-size: 13px;
+    }
+
+    #result-label {
+      font-family: 'Arial';
+      font-size: 13px;
+      position: absolute;
+      left: 300px;
+      top: 0px; 
+      width: 65%;
+      height: 20px;
+      padding: 5px;
+      margin: 5px;
+      valign: middle;
+      text-align: center;    
+      font-weight: bold;
+    }
+
+    #name-select {
+      position: absolute;
+      top: 80px;      
+    }
+
+    #query-names {
+      margin-left: 180px; 
+      font-family: 'Arial';
+      padding-bottom: 0px;       
+    }
+
+    #details {
+      position: absolute;
+      top: 10px;
+      right: 10px;        
+      border-radius: 4px;
+      background-color: #ffffff;
+      box-shadow: 0 1px 6px rgba(0, 0, 0, 0.16), 0 1px 6px rgba(0, 0, 0, 0.23);
+    }
+
+    table.gridtable {
+      font-family: verdana,arial,sans-serif;
+      font-size:11px;
+      color:#333333;
+      border-width: 1px;
+      border-color: #666666;
+      border-collapse: collapse;
+    }
+    table.gridtable th {
+      border-width: 1px;
+      padding: 8px;
+      border-style: solid;
+      border-color: #666666;
+      background-color: #dedede;
+    }
+    table.gridtable td {
+      border-width: 1px;
+      padding: 8px;
+      border-style: solid;
+      border-color: #666666;
+      background-color: #ffffff;
+    }
+
+  </style>
+</head>
+<body style="border: 1px;">
+<div id="graph-container"></div>
+<!--<span class="select-label">Select name(s): <br/><sub>(hold down Ctrl (Windows) <br/>or CMD (Mac) to select 2)</sub></span>-->
+<span class="select-label">
+  Select 2 names and click: <a href="javascript:queryPath()">Show Path</a><br/>
+  &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;- or -<br/>
+  Select 1 name and click: <a href="javascript:queryTree()">Show Tree</a><br/>
+</span>
+<div id="name-select"></div>
+<div id="result-label"></div>
+<div id="details"></div>
+<div id="viewController" class="btn-group-vertical">
+  <button type="button" class="btn btn-default" onclick="zoomReset();" title="Reset View">
+    <i class="fa fa-home"></i>
+  </button>
+  <button type="button" class="btn btn-default" onclick="zoomIn();" title="Zoom In">
+    <i class="fa fa-plus"></i>
+  </button>
+  <button type="button" class="btn btn-default" onclick="zoomOut();" title="Zoom Out">
+    <i class="fa fa-minus"></i>
+  </button>
+  <button type="button" class="btn btn-default" onclick="rotateLeft();" title="Rotate Left">
+    <i class="fa fa-rotate-left"></i>
+  </button>
+  <button type="button" class="btn btn-default" onclick="rotateRight();" title="Rotate Right">
+    <i class="fa fa-rotate-right"></i>
+  </button>
+</div>
+
+<script>
+      var ogma;
+      var session;
+
+      function init() {
+          ogma = new Ogma({
+            container: 'graph-container',
+            renderer: 'canvas'
+          });
+
+          // Define what to use as node and edge captions.
+          ogma.styles.addEdgeRule({
+            text: {              
+              content: function (e) {
+                return e.getData('neo4jType');
+              }
+            },
+            shape: 'arrow'
+          });
+
+          ogma.styles.addNodeRule({
+              text: {
+                position: 'center', 
+                maxLineLength: 140, // truncate
+                size: 9,
+                color: 'black',
+                threshold: 5,
+                content: function (n) { 
+                  return n.getData('neo4jProperties.name'); 
+                }        
+              },
+              color: "#CCCCCC"
+          });
+
+          ogma.setOptions({
+            interactions: { zoom: { onDoubleClick: true } }
+          });
+
+          ogma.events.onHover(function(evt) {
+            var target = evt.target;
+            //console.log('hovered ', target.isNode ? 'node ' : 'edge ', target.getData('neo4jProperties.name'), ' at position (', evt.x, ',', evt.y, ')');
+
+            if (target.isNode) {
+              console.log(target.getData('neo4jProperties'));
+              var details = document.getElementById('details');
+              var table = buildTable([{'name': target.getData('neo4jProperties.name'),
+                'born': target.getData('neo4jProperties.birth_date'),
+                'born location': target.getData('neo4jProperties.birth_location'),
+                'died': target.getData('neo4jProperties.death_date'),
+                'died location': target.getData('neo4jProperties.death_location')}]);
+              details.appendChild(table);
+            }
+          });
+
+          ogma.events.onUnhover(function(evt) {
+            var target = evt.target;
+            //console.log('unhovered ', target.isNode ? 'node ' : 'edge ', target.getData('neo4jProperties.name'), ' at position (', evt.x, ',', evt.y, ')');
+
+            if (target.isNode) {
+              var details = document.getElementById('details');
+              while (details.firstChild) {
+                details.removeChild(details.firstChild);
+              }
+            }
+          });
+
+          var statement = 'MATCH ({name: {nameParam1}})-[r:MOTHER|FATHER|MARRIED*..4]-(connected) RETURN r,connected';
+          var params = {nameParam1: 'Chad David Armstrong'};
+
+          //var statement = 'MATCH (a {name:{nameParam1}}) MATCH (b {name:{nameParam2}}) MATCH path = shortestPath((a)-[*..10]-(b)) RETURN path,a,b';
+          //var nameParam1 = 'Maynard Thomas Chaffee';
+          //var nameParam2 = 'Susan Stockham';
+
+          //var statement = 'MATCH (n) OPTIONAL MATCH (n)-[r:MOTHER|FATHER]->(m) RETURN n, r, m LIMIT 400;';
+
+
+          // Create a connection to the Neo4j database.
+          var driver = neo4j.v1.driver('bolt://52.205.81.5', neo4j.v1.auth.basic('neo4j', '7i=fBzYZ'));
+          session = driver.session();
+
+          makeHierarchy(statement, params);
+
+
+          //make the name sidebar
+          statement = 'MATCH (n) RETURN n.name ORDER BY n.name LIMIT 500;';          
+          var nameSelectDiv = document.getElementById('name-select');
+          session.run(statement).then(function (result) {  
+            var select = document.createElement('select');
+            select.multiple = 'multiple';
+            //select.size = 50;
+            select.id = 'nameSelect';
+            result.records.forEach(function (record) {
+                var option = document.createElement('option');
+                option.value = record.get('n.name');
+                option.appendChild(document.createTextNode(record.get('n.name')));
+                select.appendChild(option);  
+                //console.log(record.get('n.name'));
+            })
+
+            select.onchange = function(e) {
+              if (this.querySelectorAll('option:checked').length <= 2) {
+                verified = Array.apply(null, this.querySelectorAll('option:checked'));
+              } else {
+                Array.apply(null, this.querySelectorAll('option')).forEach(function(e) {
+                  e.selected = verified.indexOf(e) > -1;
+                });
+              }
+            };
+
+            return select;
+          }).then(function (select) {              
+              while(nameSelectDiv.childElementCount > 0) {
+                nameSelectDiv.removeChild(nameSelectDiv.children[0]);
+              }
+
+              // var querylink = document.createElement('a');
+              // querylink.href = 'javascript:queryPath()'; 
+              // querylink.id = 'query-names';
+              // querylink.alt = 'Select 2 names and click to show the path between them';
+              // querylink.appendChild(document.createTextNode('Show Path Between')); 
+
+              // var treelink = document.createElement('a');
+              // treelink.href = 'javascript:queryTree()'; 
+              // treelink.id = 'query-names';
+              // treelink.alt = 'Select a name and click to show the full tree going back in time'
+              // treelink.appendChild(document.createTextNode('Show Tree')); 
+
+
+              // nameSelectDiv.appendChild(querylink); 
+              // nameSelectDiv.appendChild(document.createElement('p'));               
+              // nameSelectDiv.appendChild(treelink); 
+              // nameSelectDiv.appendChild(document.createElement('p')); 
+
+              nameSelectDiv.appendChild(select);
+          });    
+      }
+
+      function queryPath() {
+        var select = document.getElementById('nameSelect');
+        var selected = select.querySelectorAll('option:checked');
+        var values = Array.from(selected).map((el) => el.value); 
+        if (values.length < 2) {
+          alert('Please select 2 names to show the path between them.')
+          return;
+        }       
+        var params = {nameParam1: values[0], nameParam2: values[1]};
+        var statement = 'MATCH (a {name:{nameParam1}}) MATCH (b {name:{nameParam2}}) MATCH path = shortestPath((a)-[*..10]-(b)) RETURN path,a,b';
+
+        makeHierarchy(statement, params);
+      }
+
+      function queryTree() {
+        var select = document.getElementById('nameSelect');
+        var selected = select.querySelectorAll('option:checked');
+        var values = Array.from(selected).map((el) => el.value);        
+        var params = {nameParam1: values[0]};
+        var statement = 'MATCH ({name: {nameParam1}})-[r:MOTHER|FATHER|MARRIED*..4]-(connected) RETURN r,connected';
+
+        makeHierarchy(statement, params);  
+      }
+
+      function buildTable(data) {
+          var table = document.createElement("table");
+          table.className="gridtable";
+          var thead = document.createElement("thead");
+          var tbody = document.createElement("tbody");
+          var headRow = document.createElement("tr");
+          ["Name","Born","Location","Died","Location"].forEach(function(el) {
+            var th=document.createElement("th");
+            th.appendChild(document.createTextNode(el));
+            headRow.appendChild(th);
+          });
+          thead.appendChild(headRow);
+          table.appendChild(thead); 
+
+          console.log(data);
+          data.forEach(function(el) {
+            var tr = document.createElement("tr");
+            for (var o in el) {  
+              var td = document.createElement("td");
+              td.appendChild(document.createTextNode(el[o]))
+              tr.appendChild(td);
+            }
+            tbody.appendChild(tr);  
+          });
+          table.appendChild(tbody);             
+          return table;
+      }
+
+      function makeHierarchy(statement, params) {
+          console.log(statement)
+          console.log(params)
+          // Run a simple query, parse it from neo4j format and set the result as the graph
+          //session.run(statement, {nameParam1: nameParam1, nameParam2: nameParam2}).then(function (result) {
+          session.run(statement, params).then(function (result) {  
+            if (result.records.length == 0) {
+              //alert('No path found between these 2 people.')
+              //console.log('No path found between these 2 people.')
+              var resultLabel = document.getElementById('result-label');
+              resultLabel.innerHTML = '';
+              var resultText = 'No path found between "' + params.nameParam1 + '" and "' + params.nameParam2 + '".';              
+              resultLabel.append(document.createTextNode(resultText));
+              resultLabel.style.backgroundColor = 'red';
+              //document.getElementById('graph-container').innerHTML = '';
+              return Promise.reject('No path found.')
+            }
+            return ogma.parse.neo4j(result)
+          }).then(graph => {
+            // Change the color of these nodes
+            // graph.nodes.forEach(function(n){
+            //   n.attributes.color = 'green';
+            // });
+            
+            ogma.setGraph(graph);
+
+            ogma.styles.addNodeRule({
+              color: function (n) { 
+                //console.log(n.getData('neo4jProperties.name'));
+                //console.log(params.nameParam1);
+                //console.log(params.nameParam2);
+
+                personName = n.getData('neo4jProperties.name');
+                if ((params.nameParam1 && personName == params.nameParam1) || (params.nameParam2 && personName == params.nameParam2)) {
+                  return "red";                    
+                }
+                return "lightgray";
+              }
+            });
+
+            var resultLabel = document.getElementById('result-label');
+            resultLabel.innerHTML = '';
+            var resultText;
+            if (params.nameParam1 && params.nameParam2) {
+              resultText = 'Showing the path between "' + params.nameParam1 + '" and "' + params.nameParam2 + '".';
+            } else {
+              resultText = 'Showing the tree containing "' + params.nameParam1 + '" (up and down at most 4 levels).';
+            }
+            resultLabel.append(document.createTextNode(resultText));
+            resultLabel.style.backgroundColor = 'lightgreen';
+
+
+
+            // Run layout
+            return ogma.layouts.hierarchical({
+                directed: true, // Take edge direction into account
+                rankdir: 'TB',  // Direction for rank nodes. Can be TB, BT, LR, or RL,
+                                // where T = top, B = bottom, L = left, and R = right.
+                duration: 300,  // Duration of the animation
+                nodesep: 30,     // Number of pixels that separate nodes horizontally in the layout.
+                ranksep: 40     // Number of pixels between each rank in the layout.
+            })
+            .then(function() {
+                console.log('done');
+                ogma.view.locateGraph({
+                  easing: 'linear',
+                  duration: 300
+              });
+            });
+
+          }).then(() => {
+            console.log('Import done!');
+            zoomReset();
+          });
+      }
+
+      function zoomReset() {
+        ogma.view.locateGraph({
+          easing: 'linear',
+          duration: 300,
+          // padding: { right: 100 }
+        });
+      }
+
+      function zoomIn() {
+        ogma.view.zoomIn({ duration: 200 }).then(function() { console.log('zoom done') });
+      }
+
+      function zoomOut() {
+        ogma.view.zoomOut({ duration: 200 }).then(function() { console.log('zoom done') });
+      }
+
+      function rotateLeft() {
+        // angle in radian
+        ogma.view.rotate(Math.PI/2, { duration:600 }).then(function() { console.log('rotation done') });
+      }
+
+      function rotateRight() {
+        // angle in radian
+        ogma.view.rotate(-Math.PI/2, { duration:600 }).then(function() { console.log('rotation done') });
+      }
+
+      window.onload = init;
+
+</script>
+</body>
+</html>

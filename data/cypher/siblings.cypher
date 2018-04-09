@@ -1,0 +1,1 @@
+MATCH (r:Person)-[:MOTHER|:FATHER]->(p:Person) where p.name = "Miriam Amanda Kleppinger" MATCH (r2:Person)-[:SON|:DAUGHTER]->(r:Person) RETURN r2

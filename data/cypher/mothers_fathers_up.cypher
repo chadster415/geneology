@@ -1,0 +1,1 @@
+MATCH (b:Person)-[:MOTHER|:FATHER*..10]->(a {name:"Chad David Armstrong"}) RETURN a,b

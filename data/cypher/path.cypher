@@ -1,0 +1,1 @@
+MATCH p = (n:Person)-[*..6]->(m:Person) where n.name = "Maynard Thomas Chaffee" and m.name="Susan Stockham"  RETURN p
