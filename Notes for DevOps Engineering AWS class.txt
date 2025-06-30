@@ -1,0 +1,136 @@
+Notes for DevOps Engineering AWS class:
+---------------------------------------
+
+aws.qwiklabs.com
+gilmore.ca ?
+
+
+
+Day 1:
+
+Module 1: Intro to DevOps
+
+Module 2: AWS CLI
+    Lab 1:
+
+Module 3: Intro to DevSecOps
+    Lab 2:
+
+4: Deployment Strategoes and Dev tOols
+
+
+
+Day 2:
+
+5: Infrastructure as Code
+
+6: Deep Dive into AWS Dev Tools     
+
+7: Automated Testing
+
+
+
+Day 3:
+
+8: Config Mgmt
+
+9: AMI Building and EC2 System Mgr
+
+10: Containers
+
+11: Customer Case Studies
+
+
+
+
+=============================================================
+
+
+Day 1:
+
+Infrastructure as Code
+    - Each AWS account max 100 buckets
+        - Mgmt Console
+        - CLI
+        - Cloudformation (on par with Terraform)
+
+    - automating the process of creating, updating or deleting infra
+    - shell scripts
+    - appl code leveraging the SDK (python, node, etc)
+    - 3rd party tools
+    - AWS CF
+    - Automation! - same structure deployment again and again
+    - Dulles airport - 50 miles in all direction is us-east-1
+    - Benefits:
+        - infra can be versioned and managed
+        - repeatedly and reliably created and turned off and recreated
+        - created as needed to test the latest version of your application
+
+        - cost savings, creation of mult env, and creation of identical envs for multiple customers
+
+    - DevOps?
+        - auto instantiation of stacks from templates using AWS CLI, SDK, and CodePipeline
+        - parameter validation to eliminate execution errors
+        - chaining and nesting stacks
+        - custom resources to connect systems together and to validate deployments
+        - addtl features to simplify changes to infrastructure
+
+    - structure of a CF template
+        - Format Version - corresponding AWS CF template version
+        - description - text string
+        - Parameters - inputs into template
+        - Mappings - static vars, KV pairs
+        - Conditions - controls for if and when certain resources are created or updated
+        - Resources - aws assets to create
+        - Outputs - values of custom resources created by template (URLs, username, etc)
+
+
+
+AWS CloudFormation
+
+
+Automated Infra Mgmt with CloudFormation
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
